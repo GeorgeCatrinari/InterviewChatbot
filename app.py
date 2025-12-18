@@ -59,9 +59,32 @@ if not st.session_state.feedback_shown and not st.session_state.chat_complete:
                 st.session_state.messages.append({"role":"assistant", "content":response})
             st.session_state.user_message_count+=1  
 
-    if st.session_state.user_message_count>=5:
+    if st.session_state.user_message_count>5:
         st.session_state.chat_complete = True
 
 if st.session_state.chat_complete and not st.session_state.feedback_shown:
     if st.button("Get Feedback", on_click=show_feedback):
-        st.write("Fetching feedback..")      
+        st.write("Fetching feedback..") 
+
+if st.session_state.feedback_shown:
+    st.subheader("Feedback")
+    conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages])
+
+    feedback_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    feedback_completion = feedback_client.chat.completions.create(
+        model = "gpt-4.1",
+        messages=[
+            {"role":"system", "content": """You are a helpful tool that provides feedback based on an interviewee performance and that provides a summary of the user's responses like themes, sentiment, key points and others.
+             Before the Feedback give a score of 1 to 10.
+             Follow this format:
+             Overall Score: //Your score
+             Feedback: //Here you put your feedback
+             Summary: //The summary of the user's responses.
+             Give only the feedback and summary do not ask any addiotional questions.
+             """
+            },
+            {"role":"user", "content": f"This is the interview you need to evaluate. You are only a tool and shouldn't engage in covnersation:{conversation_history}"}
+        ]
+    )     
+
+    st.write(feedback_completion.choices[0].message.content)
