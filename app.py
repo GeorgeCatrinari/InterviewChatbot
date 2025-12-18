@@ -1,5 +1,8 @@
 import streamlit as st
 from openai import OpenAI
+from streamlit_js_eval import streamlit_js_eval
+import json
+from datetime import datetime
 
 st.set_page_config(page_title="Interviewer Chatbot", page_icon="💬")
 st.title("AI Interviewer")
@@ -18,6 +21,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_complete" not in st.session_state:
     st.session_state.chat_complete = False
+if "interview_saved" not in st.session_state:
+    st.session_state.interview_saved = False
 
 def show_feedback():
     st.session_state.feedback_shown = True
@@ -74,12 +79,12 @@ if st.session_state.feedback_shown:
     feedback_completion = feedback_client.chat.completions.create(
         model = "gpt-4.1",
         messages=[
-            {"role":"system", "content": """You are a helpful tool that provides feedback based on an interviewee performance and that provides a summary of the user's responses like themes, sentiment, key points and others.
+            {"role":"system", "content": """You are a helpful tool that provides feedback based on an interviewee performance and that provides a summary of the user's responses like themes, sentiment, key points.
              Before the Feedback give a score of 1 to 10.
              Follow this format:
              Overall Score: //Your score
              Feedback: //Here you put your feedback
-             Summary: //The summary of the user's responses.
+             Summary: //The summary of the user's responses with the themes, sentiment and key points
              Give only the feedback and summary do not ask any addiotional questions.
              """
             },
@@ -88,3 +93,18 @@ if st.session_state.feedback_shown:
     )     
 
     st.write(feedback_completion.choices[0].message.content)
+
+    if st.session_state.feedback_shown and not st.session_state.interview_saved:
+        interview_data ={
+            "timestamp":datetime.now().isoformat(),
+            "messages":st.session_state.messages,
+            "feedback":feedback_completion.choices[0].message.content
+        }
+        filename= f"interview_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(filename, 'w', encoding="utf-8") as f:
+            json.dump(interview_data, f, ensure_ascii = False, indent=4)
+
+        st.session_state.interview_saved = True
+    
+    if st.button("Restart interview", type="primary"):
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
