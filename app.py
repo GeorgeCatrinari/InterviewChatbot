@@ -3,6 +3,13 @@ from openai import OpenAI
 from streamlit_js_eval import streamlit_js_eval
 import json
 from datetime import datetime
+from textblob import TextBlob
+from collections import Counter
+import re
+import nltk
+from nltk.corpus import stopwords
+nltk.download('stopwords')
+
 
 st.set_page_config(page_title="Interviewer Chatbot", page_icon="💬")
 st.title("AI Interviewer")
@@ -93,6 +100,35 @@ if st.session_state.feedback_shown:
     )     
 
     st.write(feedback_completion.choices[0].message.content)
+
+    st.divider()
+    st.subheader("NLP Analysis")
+    user_responses=" ".join([msg['content'] for msg in st.session_state.messages if msg['role'] =='user'])
+
+    bl=TextBlob(user_responses)
+    sentiment_score = bl.sentiment.polarity
+
+    st.metric("Sentiment Score", f"{sentiment_score:.2f}",
+                help= "Range: -1 (negative) to 1 (positive)")
+    if sentiment_score>0.1:
+        st.success("Positive sentiment")
+    elif sentiment_score <-0.1:
+        st.error("Negative sentiment")
+    else:
+        st.info("Neutral sentiment")
+
+    st.write("Top Keywords:")
+    words=re.findall(r'\b[a-zA-Z]{4,}\b', user_responses.lower())
+    stop_words = stopwords.words('english')
+    words=[word for word in words if word not in stop_words ]
+    keywords=Counter(words).most_common(10)
+
+    if keywords:
+        for i, (word, count) in enumerate(keywords,1):
+            st.write(f"{i}.**{word.capitalize()}** - mentioned {count} times")
+    else:
+        st.write("No significant words")
+
 
     if st.session_state.feedback_shown and not st.session_state.interview_saved:
         interview_data ={
